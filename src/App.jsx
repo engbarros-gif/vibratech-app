@@ -851,3 +851,403 @@ export default function App() {
 
         {activeTab === 'diagnostic' && selectedPointForReport && (
           <div className="space-y-6">
+                        <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+              <button
+                onClick={() => setActiveTab('measurements')}
+                className="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1.5 cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Back to History</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                {validationType === 'Measurement Error' ? (
+                  <button
+                    onClick={handleDismissMeasurementError}
+                    className="bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+                  >
+                    <XCircle className="w-4 h-4 text-rose-400" />
+                    <span>Confirm Dismissal (Collection Error)</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSaveFailureRecord}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Save Failure Record & Generate Standard Report</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-5">
+                <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-indigo-600 tracking-wider uppercase">{selectedPointForReport.equipamento_tag}</span>
+                    <h3 className="text-xl font-bold text-slate-900">Technical Report & Validation: {selectedPointForReport.ponto_medicao}</h3>
+                  </div>
+                  <span className="bg-rose-100 text-rose-800 text-xs font-bold px-3 py-1 rounded-full border border-rose-200">
+                    Deviation: +{selectedPointForReport.variacao_perc}%
+                  </span>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                  <label className="text-xs font-bold text-slate-900 block flex items-center gap-1.5">
+                    <CheckSquare className="w-4 h-4 text-indigo-600" />
+                    1. Analyst Validation (Validation_Type):
+                  </label>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setValidationType('Unacknowledged')}
+                      className={`p-3 rounded-xl text-left border text-xs font-bold transition-all cursor-pointer ${
+                        validationType === 'Unacknowledged'
+                          ? 'bg-amber-50 border-amber-400 text-amber-900 ring-2 ring-amber-400/30'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <HelpCircle className="w-4 h-4 text-amber-600" />
+                        <span>Unacknowledged</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-normal">Pending technical evaluation</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setValidationType('Acknowledged')}
+                      className={`p-3 rounded-xl text-left border text-xs font-bold transition-all cursor-pointer ${
+                        validationType === 'Acknowledged'
+                          ? 'bg-emerald-50 border-emerald-400 text-emerald-900 ring-2 ring-emerald-400/30'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span>Acknowledged</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-normal">Real fault confirmed (Generate Report)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setValidationType('Measurement Error')}
+                      className={`p-3 rounded-xl text-left border text-xs font-bold transition-all cursor-pointer ${
+                        validationType === 'Measurement Error'
+                          ? 'bg-rose-50 border-rose-400 text-rose-900 ring-2 ring-rose-400/30'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <XCircle className="w-4 h-4 text-rose-600" />
+                        <span>Measurement Error</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-normal">Field collection error (Dismiss)</span>
+                    </button>
+                  </div>
+
+                  {validationType === 'Measurement Error' && (
+                    <div className="pt-2">
+                      <label className="text-[11px] font-bold text-rose-800 block mb-1">
+                        Collection Error Justification (Required to remove from pending):
+                      </label>
+                      <input
+                        type="text"
+                        value={validationJustification}
+                        onChange={(e) => setValidationJustification(e.target.value)}
+                        placeholder="Ex: Sensor poorly mounted during measurement, transient process noise..."
+                        className="w-full bg-white text-slate-800 text-xs p-2.5 rounded-lg border border-rose-300 focus:outline-none focus:border-rose-500"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {validationType !== 'Measurement Error' && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-xs font-bold text-slate-800 block mb-1">
+                        2. Failure Description (Analyst Analysis):
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={failureDescription}
+                        onChange={(e) => setFailureDescription(e.target.value)}
+                        placeholder="Describe in detail what was identified during technical analysis of frequency bands..."
+                        className="w-full bg-slate-50 text-slate-800 text-xs p-3 rounded-xl border border-slate-300 focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-800 block">
+                        3. Identified Failure Types (`Matrix_Failure_Types`):
+                      </label>
+                      <p className="text-[11px] text-slate-500">
+                        Select one or more failure types so the system includes pre-determined recommendation text in the editable field below:
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 bg-slate-50 rounded-xl border border-slate-200">
+                        {FAILURE_TYPES_MATRIX.map(matrixItem => {
+                          const isSelected = selectedFailureTypes.includes(matrixItem.type);
+                          return (
+                            <button
+                              type="button"
+                              key={matrixItem.type}
+                              onClick={() => handleToggleFailureType(matrixItem)}
+                              className={`p-2 rounded-lg text-left text-xs font-medium border flex items-center justify-between transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                              }`}
+                            >
+                              <span>{matrixItem.type}</span>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-white" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-800 block mb-1">
+                        Final Recommendation Text (Generated from Matrix & Editable):
+                      </label>
+                      <textarea
+                        rows={4}
+                        value={reportRecommendation}
+                        onChange={(e) => setReportRecommendation(e.target.value)}
+                        placeholder="Recommendations from selected matrix will appear here. You can modify or expand this text..."
+                        className="w-full bg-slate-50 text-slate-800 text-xs p-3 rounded-xl border border-slate-300 focus:outline-none focus:border-indigo-500 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">Analysis Severity:</label>
+                      <select
+                        value={reportSeverity}
+                        onChange={(e) => setReportSeverity(e.target.value)}
+                        className="w-full bg-slate-50 text-slate-800 text-xs font-bold px-3 py-2 rounded-xl border border-slate-300"
+                      >
+                        <option value="CRITICAL">🔴 Critical (Immediate Action)</option>
+                        <option value="ALARM">🟡 Alarm (Accelerated Monitoring)</option>
+                        <option value="MONITOR">🔵 Under Observation</option>
+                      </select>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100">
+                      <label className="text-xs font-bold text-slate-700 block mb-2 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <ImageIcon className="w-4 h-4 text-indigo-600" />
+                          Spectrum / FFT / Vibration Envelope Photos:
+                        </span>
+                        <span className="text-[11px] text-slate-400 font-normal">Attach SKF software screenshots</span>
+                      </label>
+
+                      <div className="flex flex-wrap gap-3 items-center">
+                        {spectrumImages.map(img => (
+                          <div key={img.id} className="relative group w-24 h-24 bg-slate-100 rounded-xl overflow-hidden border border-slate-300 shadow-sm">
+                            <img src={img.url} alt={img.name} className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                              <span className="text-[9px] text-white font-mono text-center p-1">{img.name}</span>
+                            </div>
+                          </div>
+                        ))}
+
+                        <label className="w-24 h-24 rounded-xl border-2 border-dashed border-indigo-300 bg-indigo-50/50 hover:bg-indigo-50 text-indigo-600 flex flex-col items-center justify-center cursor-pointer transition-all">
+                          <Upload className="w-5 h-5 mb-1" />
+                          <span className="text-[10px] font-bold text-center px-1">Attach Spectrum</span>
+                          <input type="file" multiple accept="image/*" className="hidden" onChange={handleSpectrumUpload} />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <LineChartIcon className="w-4 h-4 text-indigo-600" />
+                    Measured Point Summary
+                  </h4>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs space-y-2">
+                    <div className="flex justify-between border-b border-slate-200 pb-1">
+                      <span className="text-slate-500">Point:</span>
+                      <span className="font-bold">{selectedPointForReport.ponto_medicao}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-200 pb-1">
+                      <span className="text-slate-500">Measured:</span>
+                      <span className="font-bold text-indigo-700">{selectedPointForReport.valor_medido} {selectedPointForReport.unidade}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-200 pb-1">
+                      <span className="text-slate-500">Limit:</span>
+                      <span className="font-bold text-slate-700">{selectedPointForReport.valor_limite} {selectedPointForReport.unidade}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Validation:</span>
+                      <span className="font-bold font-mono text-indigo-900">{validationType}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Registered SKF Alarms:</label>
+                    <div className="bg-rose-50 text-rose-900 p-3 rounded-xl border border-rose-200 text-xs font-mono whitespace-pre-line">
+                      {selectedPointForReport.status_alarme}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-slate-100">
+                  <p className="text-[11px] text-slate-400">
+                    Upon validation, records will be relationally stored in Neon PostgreSQL and rendered into standard reports.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {showClientReportPreview && (
+              <div id="client-report-section" className="bg-white rounded-2xl p-8 border-2 border-indigo-200 shadow-xl space-y-6 animate-fadeIn">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-indigo-600 text-white p-2.5 rounded-xl font-bold">
+                      VT
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900">VIBRATION ANALYSIS TECHNICAL REPORT</h3>
+                      <p className="text-xs text-slate-500">Asset Condition Technical Report — VibraTech</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      Saved to Database
+                    </span>
+                    <button
+                      onClick={() => window.print()}
+                      className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-4 py-2 rounded-xl flex items-center gap-2 cursor-pointer shadow-sm transition-all"
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span>Print / Export PDF</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+                  <div>
+                    <span className="text-slate-500 block">Equipment:</span>
+                    <strong className="text-slate-900">{selectedPointForReport.equipamento_tag}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Measured Point:</span>
+                    <strong className="text-indigo-700 font-mono">{selectedPointForReport.ponto_medicao}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Detected Failure:</span>
+                    <strong className="text-slate-900">{selectedFailureTypes.join(", ") || "Under Analysis"}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Severity:</span>
+                    <span className="bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded font-bold">{reportSeverity}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <h4 className="font-bold text-slate-800 border-b border-slate-200 pb-1 mb-1">Analyst Failure Description:</h4>
+                    <p className="text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg">{failureDescription || "No additional comments added."}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-800 border-b border-slate-200 pb-1 mb-1">Maintenance Technical Recommendations:</h4>
+                    <p className="text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg whitespace-pre-line font-mono">{reportRecommendation || "Maintain trend monitoring in the next cycle."}</p>
+                  </div>
+                </div>
+
+                {spectrumImages.length > 0 && (
+                  <div>
+                    <h4 className="font-bold text-xs text-slate-800 border-b border-slate-200 pb-1 mb-3">Attached Vibration Spectra:</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {spectrumImages.map(img => (
+                        <div key={img.id} className="bg-slate-50 p-2 rounded-xl border border-slate-200">
+                          <img src={img.url} alt={img.name} className="w-full h-48 object-cover rounded-lg" />
+                          <span className="text-[10px] text-slate-500 font-mono mt-1 block text-center">{img.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'failures_db' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-indigo-600" />
+                Analyzed Points History & Failure Records (`tb_registros_falha`)
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Centralized database of completed technical analyses. To edit or review a published report, use the "Edit Report" button.
+              </p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase">
+                    <tr>
+                      <th className="p-3.5">Record ID</th>
+                      <th className="p-3.5">Equipment</th>
+                      <th className="p-3.5">Point</th>
+                      <th className="p-3.5">Failure Types</th>
+                      <th className="p-3.5">Severity</th>
+                      <th className="p-3.5">Description</th>
+                      <th className="p-3.5 text-center">Spectra</th>
+                      <th className="p-3.5 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {savedFailuresHistory.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="p-8 text-center text-slate-400 font-medium">
+                          No completed reports yet. Select a pending alarm from Tab 3 to issue a report.
+                        </td>
+                      </tr>
+                    ) : (
+                      savedFailuresHistory.map(rec => (
+                        <tr key={rec.id} className="hover:bg-slate-50">
+                          <td className="p-3.5 font-mono text-indigo-700 font-bold">{rec.id}</td>
+                          <td className="p-3.5 font-bold text-slate-900">{rec.equipamento}</td>
+                          <td className="p-3.5 font-mono font-bold">{rec.ponto}</td>
+                          <td className="p-3.5 font-semibold text-slate-800">{rec.tipos_falha}</td>
+                          <td className="p-3.5">
+                            <span className="bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded font-bold">{rec.severidade}</span>
+                          </td>
+                          <td className="p-3.5 max-w-xs truncate text-slate-700">{rec.descricao_falha}</td>
+                          <td className="p-3.5 text-center font-mono">{rec.espectros_count} attachment(s)</td>
+                          <td className="p-3.5 text-center">
+                            <button
+                              onClick={() => handleOpenPointDiagnostic(rec.ponto_original, rec)}
+                              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer"
+                            >
+                              Edit Report
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+            
