@@ -31,7 +31,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 
-const API_BASE_URL = "https://vibratech-api.vercel.app/api";
+const API_BASE_URL = "https://seu-servico-no-render.onrender.com/api";
 
 // MATRIZ DE TIPOS DE FALHA & RECOMENDAÇÕES PADRÃO
 const FAILURE_TYPES_MATRIX = [
