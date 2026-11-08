@@ -122,8 +122,38 @@ export default function App() {
             status: r.status || "Pending"
           }));
           setScheduleData(mappedRoutes);
+        } else {
+          setScheduleData([]); // Zera se o banco estiver vazio
         }
       }
+
+      if (resMeas.ok) {
+        const dataMeas = await resMeas.json();
+        if (Array.isArray(dataMeas) && dataMeas.length > 0) {
+          const mappedMeas = dataMeas.map((m, idx) => ({
+            id: m.id || idx + 1,
+            equipamento_tag: m.equipamento || m.equipamento_tag || "EQUIPMENT",
+            unidade_fabril: "PM1",
+            area_set: m.area || "GENERAL",
+            ponto_medicao: m.ponto_medicao || m.ponto || "POINT-01",
+            data_hora: m.data_medicao || m.data_hora || "2026-11-08 08:00:00",
+            valor_medido: m.valor_vibracao || m.valor_medido || 0.0,
+            valor_limite: 0.05,
+            variacao_perc: 150.0,
+            unidade: "mm/s",
+            status_alarme: m.status === 'Danger' ? 'Overall - Danger' : (m.status === 'Alert' ? 'Overall - Alert' : '---'),
+            validation_status: m.validation_status || "Unacknowledged",
+            validation_justification: m.validation_justification || ""
+          }));
+          setMeasurementsData(mappedMeas);
+        } else {
+          setMeasurementsData([]); // Zera se o banco estiver vazio
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao carregar dados do Neon:", err);
+    }
+  };
 
       if (resMeas.ok) {
         const dataMeas = await resMeas.json();
