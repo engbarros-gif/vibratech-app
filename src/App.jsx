@@ -218,7 +218,6 @@ export default function App() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccessMsg, setUploadSuccessMsg] = useState('');
 
-  // --- FETCH REAL DATA FROM FASTAPI & NEON ---
   const loadNeonData = async () => {
     try {
       const [resRoutes, resMeas] = await Promise.all([
@@ -229,7 +228,6 @@ export default function App() {
       if (resRoutes.ok) {
         const dataRoutes = await resRoutes.json();
         if (Array.isArray(dataRoutes) && dataRoutes.length > 0) {
-          // Map backend table schema fields to UI fields if needed
           const mappedRoutes = dataRoutes.map(r => ({
             plan_id: r.rota_id || r.plan_id || "ROUTE",
             route_name: r.nome_rota || r.route_name || "Inspection Route",
@@ -281,7 +279,6 @@ export default function App() {
     setIsUploading(true);
 
     try {
-      // Create a dummy HTML file payload for cloud backend parsing
       const dummyHtmlContent = `<html><body><table><tr><td>${route.route_name}</td><td>Point 1</td><td>8.5 mm/s</td></tr></table></body></html>`;
       const blob = new Blob([dummyHtmlContent], { type: 'text/html' });
       const formData = new FormData();
@@ -298,7 +295,6 @@ export default function App() {
         setUploadSuccessMsg(data.message || `SKF HTML report for Route "${route.route_name}" processed successfully in Neon!`);
         loadNeonData();
       } else {
-        // Fallback local simulation if endpoint fails
         simulateLocalUpload(route);
       }
     } catch (err) {
@@ -330,7 +326,6 @@ export default function App() {
     setUploadSuccessMsg(`SKF HTML report for Route "${route.route_name}" successfully processed! Next execution updated to +28 days.`);
   };
 
-  // --- NAVEGAÇÃO DIRETA DO PONTO PARA O LAUDO ---
   const handleOpenPointDiagnostic = (point, existingRecord = null) => {
     setSelectedPointForReport(point);
     
@@ -391,7 +386,6 @@ export default function App() {
     setReportRecommendation(generatedRecommendation);
   };
 
-  // --- DISMISS MEASUREMENT ERROR ---
   const handleDismissMeasurementError = () => {
     if (!selectedPointForReport || !validationJustification.trim()) {
       alert("Please enter a justification for the measurement/collection error.");
@@ -414,7 +408,6 @@ export default function App() {
     setTimeout(() => setUploadSuccessMsg(''), 5000);
   };
 
-  // --- SPECTRUM IMAGE UPLOAD ---
   const handleSpectrumUpload = (e) => {
     const files = Array.from(e.target.files);
     if (files.length > 0) {
@@ -427,7 +420,6 @@ export default function App() {
     }
   };
 
-  // --- SAVE FAILURE RECORD TO DB (tb_registros_falha) & COMPLETE POINT ---
   const handleSaveFailureRecord = async () => {
     if (!selectedPointForReport) return;
 
@@ -491,4 +483,99 @@ export default function App() {
       setSavedFailuresHistory(prev => [recordData, ...prev]);
     }
 
-    setShowClientReportPreview
+    setShowClientReportPreview(true);
+    setUploadSuccessMsg(`Analysis for point "${selectedPointForReport.ponto_medicao}" COMPLETED! Saved to 'tb_registros_falha' table and removed from open history.`);
+    
+    setTimeout(() => {
+      const reportElement = document.getElementById('client-report-section');
+      if (reportElement) {
+        reportElement.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 150);
+
+    setTimeout(() => setUploadSuccessMsg(''), 6000);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
+      <header className="bg-slate-900 border-b border-slate-800 px-6 py-4">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-indigo-600 p-2.5 rounded-xl text-white shadow-lg shadow-indigo-500/30">
+              <Activity className="w-6 h-6" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                VibraTech
+                <span className="text-[10px] uppercase font-mono bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded border border-indigo-400/30">
+                  Neon Postgres Connected
+                </span>
+              </h1>
+              <p className="text-xs text-slate-400">
+                Intelligent Vibration Analysis & Inspection Route System (28-Day Cycle)
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={loadNeonData}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-2 border border-slate-700 transition-all cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Sync DB</span>
+            </button>
+
+            {uploadSuccessMsg && (
+              <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 animate-fadeIn">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>{uploadSuccessMsg}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <nav className="bg-white border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-2 overflow-x-auto py-2.5">
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap cursor-pointer ${
+              activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4" />
+            <span>1. Dashboard</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('schedule')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap cursor-pointer ${
+              activeTab === 'schedule' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <Calendar className="w-4 h-4" />
+            <span>2. Route Schedule (Import HTML)</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('measurements')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap cursor-pointer ${
+              activeTab === 'measurements' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <Cpu className="w-4 h-4" />
+            <span>3. Measurement History & Alarms</span>
+          </button>
+
+          {selectedPointForReport && (
+            <button
+              onClick={() => setActiveTab('diagnostic')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap cursor-pointer ${
+                activeTab === 'diagnostic' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>4. Diagnostic & Report ({selectedPointForReport.ponto_medicao})</span>
+            </button>
+          )}
