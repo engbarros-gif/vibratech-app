@@ -78,8 +78,8 @@ const FAILURE_TYPES_MATRIX = [
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [scheduleData, setScheduleData] = useState(INITIAL_SCHEDULE_DATA);
-  const [measurementsData, setMeasurementsData] = useState(INITIAL_MEASUREMENTS_DATA);
+  const [scheduleData, setScheduleData] = useState([]);
+  const [measurementsData, setMeasurementsData] = useState([]);
 
   const [selectedRouteForUpload, setSelectedRouteForUpload] = useState(null);
   const [selectedPointForReport, setSelectedPointForReport] = useState(null);
@@ -123,7 +123,7 @@ export default function App() {
           }));
           setScheduleData(mappedRoutes);
         } else {
-          setScheduleData([]); // Zera se o banco estiver vazio
+          setScheduleData([]);
         }
       }
 
@@ -132,52 +132,26 @@ export default function App() {
         if (Array.isArray(dataMeas) && dataMeas.length > 0) {
           const mappedMeas = dataMeas.map((m, idx) => ({
             id: m.id || idx + 1,
-            equipamento_tag: m.equipamento || m.equipamento_tag || "EQUIPMENT",
+            equipamento_tag: m.equipamento || m.equipamento_tag || m.equipamento_tag || "EQUIPMENT",
             unidade_fabril: "PM1",
-            area_set: m.area || "GENERAL",
+            area_set: m.area || m.nome_rota || "GENERAL",
             ponto_medicao: m.ponto_medicao || m.ponto || "POINT-01",
-            data_hora: m.data_medicao || m.data_hora || "2026-11-08 08:00:00",
+            data_hora: m.data_hora || m.data_medicao || "2026-11-08 08:00:00",
             valor_medido: m.valor_vibracao || m.valor_medido || 0.0,
-            valor_limite: 0.05,
-            variacao_perc: 150.0,
-            unidade: "mm/s",
-            status_alarme: m.status === 'Danger' ? 'Overall - Danger' : (m.status === 'Alert' ? 'Overall - Alert' : '---'),
+            valor_limite: m.valor_limite || 0.05,
+            variacao_perc: m.variacao_perc || 150.0,
+            unidade: m.unidade || "mm/s",
+            status_alarme: m.status_alarme || (m.status === 'Danger' ? 'Overall - Danger' : (m.status === 'Alert' ? 'Overall - Alert' : '---')),
             validation_status: m.validation_status || "Unacknowledged",
             validation_justification: m.validation_justification || ""
           }));
           setMeasurementsData(mappedMeas);
         } else {
-          setMeasurementsData([]); // Zera se o banco estiver vazio
+          setMeasurementsData([]);
         }
       }
     } catch (err) {
       console.error("Erro ao carregar dados do Neon:", err);
-    }
-  };
-
-      if (resMeas.ok) {
-        const dataMeas = await resMeas.json();
-        if (Array.isArray(dataMeas) && dataMeas.length > 0) {
-          const mappedMeas = dataMeas.map((m, idx) => ({
-            id: m.id || idx + 1,
-            equipamento_tag: m.equipamento || m.equipamento_tag || "EQUIPMENT",
-            unidade_fabril: "PM1",
-            area_set: m.area || "GENERAL",
-            ponto_medicao: m.ponto_medicao || m.ponto || "POINT-01",
-            data_hora: m.data_medicao || m.data_hora || "2026-11-08 08:00:00",
-            valor_medido: m.valor_vibracao || m.valor_medido || 0.0,
-            valor_limite: 0.05,
-            variacao_perc: 150.0,
-            unidade: "mm/s",
-            status_alarme: m.status === 'Danger' ? 'Overall - Danger' : (m.status === 'Alert' ? 'Overall - Alert' : '---'),
-            validation_status: m.validation_status || "Unacknowledged",
-            validation_justification: m.validation_justification || ""
-          }));
-          setMeasurementsData(mappedMeas);
-        }
-      }
-    } catch (err) {
-      console.error("Using fallback mock data due to API connection state:", err);
     }
   };
 
@@ -249,6 +223,7 @@ export default function App() {
     }));
     setUploadSuccessMsg(`SKF HTML report for Route "${route.route_name}" successfully uploaded and processed! Next execution updated to +28 days.`);
   };
+
   const handleOpenPointDiagnostic = (point, existingRecord = null) => {
     setSelectedPointForReport(point);
     
