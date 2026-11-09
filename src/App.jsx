@@ -98,6 +98,7 @@ export default function App() {
   const [expandedEquipments, setExpandedEquipments] = useState({});
   const [measFilterRoute, setMeasFilterRoute] = useState('ALL');
   const [measFilterStatus, setMeasFilterStatus] = useState('ALARM');
+  const [measFilterAnalysis, setMeasFilterAnalysis] = useState('ALL'); // NOVO: Filtro de status de análise
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccessMsg, setUploadSuccessMsg] = useState('');
 
@@ -145,6 +146,7 @@ export default function App() {
             variacao_perc: m.variacao_perc !== undefined ? m.variacao_perc : 0.0,
             unidade: m.unidade || "mm/s",
             status_alarme: m.status_alarme || '---',
+            status_analise: m.status_analise || 'Pendente', // NOVO: Mapeia o status do Neon
             validation_status: m.validation_status || "Unacknowledged",
             validation_justification: m.validation_justification || ""
           }));
@@ -258,7 +260,6 @@ export default function App() {
       setReportSeverity('CRITICAL');
     }
 
-    // Removida a imagem automática — inicia sem fotos anexadas
     setSpectrumImages([]);
     setShowClientReportPreview(false);
     setActiveTab('diagnostic');
@@ -356,6 +357,15 @@ export default function App() {
     acc[key].points.push(m);
     return acc;
   }, {});
+
+  // NOVO: Filtro aplicado na listagem agrupada por status de análise
+  const filteredGroupedMeasurements = Object.values(groupedMeasurements).filter(group => {
+    if (measFilterAnalysis === 'ALL') return true;
+    const allAnalyzed = group.points.every(p => p.status_analise === 'Analisado');
+    if (measFilterAnalysis === 'ANALISADO') return allAnalyzed;
+    if (measFilterAnalysis === 'PENDENTE') return !allAnalyzed;
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
@@ -482,7 +492,7 @@ export default function App() {
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">Pending Alarms</span>
                 <span className="text-2xl font-black text-rose-600">
-                  {measurementsData.filter(m => m.status_alarme !== '---' && m.validation_status !== 'Measurement Error' && m.validation_status !== 'Completed').length}
+                  {measurementsData.filter(m => m.status_alarme !== '---' && m.status_analise === 'Pendente').length}
                 </span>
                 <span className="text-[11px] text-rose-600 block mt-1 font-medium">Awaiting analyst report</span>
               </div>
@@ -668,6 +678,17 @@ export default function App() {
                   <option value="ALARM">Open Alarms Only</option>
                   <option value="ALL">All Measurements</option>
                 </select>
+
+                {/* NOVO: Filtro visual de status de análise */}
+                <select
+                  value={measFilterAnalysis}
+                  onChange={(e) => setMeasFilterAnalysis(e.target.value)}
+                  className="bg-slate-50 text-slate-800 text-xs font-bold px-3 py-2 rounded-xl border border-slate-300"
+                >
+                  <option value="ALL">Analysis Status: All</option>
+                  <option value="PENDENTE">🔴 Pendente de Análise</option>
+                  <option value="ANALISADO">🟢 Analisados</option>
+                </select>
               </div>
             </div>
 
@@ -681,20 +702,22 @@ export default function App() {
                       <th className="p-3.5">Area / Route</th>
                       <th className="p-3.5 text-center">Points in Alarm</th>
                       <th className="p-3.5 text-center">Max Deviation</th>
+                      <th className="p-3.5 text-center">Status Análise</th>
                       <th className="p-3.5 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {Object.keys(groupedMeasurements).length === 0 ? (
+                    {filteredGroupedMeasurements.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-slate-400 font-medium">
-                          Nenhum alarme aberto encontrado. Faça o upload de um relatório HTML na aba de Rotas.
+                        <td colSpan={7} className="p-8 text-center text-slate-400 font-medium">
+                          Nenhum equipamento encontrado com os filtros selecionados.
                         </td>
                       </tr>
                     ) : (
-                      Object.values(groupedMeasurements).map(group => {
+                      filteredGroupedMeasurements.map(group => {
                         const isExpanded = expandedEquipments[group.equipamento];
                         const maxDev = Math.max(...group.points.map(p => p.variacao_perc || 0));
+                        const allAnalyzed = group.points.every(p => p.status_analise === 'Analisado');
 
                         return (
                           <React.Fragment key={group.equipamento}>
@@ -722,11 +745,27 @@ export default function App() {
                                 +{maxDev}%
                               </td>
                               <td className="p-3.5 text-center">
+                                {allAnalyzed ? (
+                                  <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] px-2.5 py-1 rounded-full font-bold">
+                                    🟢 Analisado
+                                  </span>
+                                ) : (
+                                  <span className="bg-amber-100 text-amber-800 border border-amber-200 text-[10px] px-2.5 py-1 rounded-full font-bold">
+                                    🔴 Pendente
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3.5 text-center">
                                 <button
-                                  onClick={() => handleOpenEquipmentDiagnostic(group)}
-                                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer shadow-sm"
+                                  onClick={() => {
+                                    const existingRec = savedFailuresHistory.find(f => f.equipamento === group.equipamento);
+                                    handleOpenEquipmentDiagnostic(group, existingRec);
+                                  }}
+                                  className={`${
+                                    allAnalyzed ? 'bg-emerald-700 hover:bg-emerald-800' : 'bg-indigo-600 hover:bg-indigo-700'
+                                  } text-white font-bold px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer shadow-sm`}
                                 >
-                                  Validate Equipment &rarr;
+                                  {allAnalyzed ? "Edit Report ✍️" : "Validate Equipment →"}
                                 </button>
                               </td>
                             </tr>
@@ -745,6 +784,9 @@ export default function App() {
                                 </td>
                                 <td className="p-3.5 font-mono font-bold text-rose-600 text-center">
                                   +{pt.variacao_perc}%
+                                </td>
+                                <td className="p-3.5 text-center font-mono text-[10px]">
+                                  {pt.status_analise}
                                 </td>
                                 <td className="p-3.5 text-center">
                                   <span className="bg-slate-900 text-white font-mono text-[10px] px-3 py-1 rounded-lg block truncate max-w-xs mx-auto">
@@ -995,60 +1037,3 @@ export default function App() {
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase">
-                    <tr>
-                      <th className="p-3.5">Record ID</th>
-                      <th className="p-3.5">Equipment (FLOC)</th>
-                      <th className="p-3.5">Points Covered</th>
-                      <th className="p-3.5">Failure Types</th>
-                      <th className="p-3.5">Severity</th>
-                      <th className="p-3.5">Description</th>
-                      <th className="p-3.5 text-center">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {savedFailuresHistory.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="p-8 text-center text-slate-400 font-medium">
-                          No completed reports yet. Validate an equipment from Tab 3 to issue a report.
-                        </td>
-                      </tr>
-                    ) : (
-                      savedFailuresHistory.map(rec => (
-                        <tr key={rec.id} className="hover:bg-slate-50">
-                          <td className="p-3.5 font-mono text-indigo-700 font-bold">{rec.id}</td>
-                          <td className="p-3.5 font-bold text-slate-900">{rec.equipamento}</td>
-                          <td className="p-3.5 font-mono font-bold text-indigo-600">{rec.ponto}</td>
-                          <td className="p-3.5 font-semibold text-slate-800">{rec.tipos_falha}</td>
-                          <td className="p-3.5">
-                            <span className="bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded font-bold">{rec.severidade}</span>
-                          </td>
-                          <td className="p-3.5 max-w-xs truncate text-slate-700">{rec.descricao_falha}</td>
-                          <td className="p-3.5 text-center">
-                            <button
-                              onClick={() => {
-                                const matchedGroup = groupedMeasurements[rec.equipamento] || {
-                                  equipamento: rec.equipamento,
-                                  area: rec.area || "PM1",
-                                  points: rec.ponto.split(", ").map(ptName => ({ ponto_medicao: ptName, valor_medido: 0, valor_limite: 0, variacao_perc: 0, status_alarme: "Recorded Alarm" }))
-                                };
-                                handleOpenEquipmentDiagnostic(matchedGroup, rec);
-                              }}
-                              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer"
-                            >
-                              Edit Report
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-    </div>
-  );
-}
