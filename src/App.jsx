@@ -234,26 +234,32 @@ export default function App() {
     fileInput.click();
   };
 
-  const handleOpenEquipmentDiagnostic = (group) => {
+  const handleOpenEquipmentDiagnostic = (group, existingRecord = null) => {
     setSelectedEquipmentForReport(group);
-    setEditingRecordId(null);
-    setValidationType('Acknowledged');
-    setValidationJustification('');
     
-    const initialFailures = ["Unbalance"];
-    setSelectedFailureTypes(initialFailures);
-    setFailureDescription(`Análise conjunta do Equipamento ${group.equipamento}: identificados ${group.points.length} pontos em alarme com desvios significativos nas bandas de frequência.`);
-    
-    const recText = FAILURE_TYPES_MATRIX
-      .filter(item => initialFailures.includes(item.type))
-      .map(item => item.text)
-      .join("\n\n");
+    if (existingRecord) {
+      setEditingRecordId(existingRecord.id);
+      setFailureDescription(existingRecord.descricao_falha);
+      setSelectedFailureTypes(existingRecord.tipos_falha ? existingRecord.tipos_falha.split(", ") : ["Unbalance"]);
+      setReportRecommendation(existingRecord.recomendacao);
+      setReportSeverity(existingRecord.severidade || 'CRITICAL');
+    } else {
+      setEditingRecordId(null);
+      const initialFailures = ["Unbalance"];
+      setSelectedFailureTypes(initialFailures);
+      setFailureDescription(`Análise conjunta do Equipamento ${group.equipamento}: identificados ${group.points.length} pontos em alarme com desvios significativos nas bandas de frequência.`);
+      
+      const recText = FAILURE_TYPES_MATRIX
+        .filter(item => initialFailures.includes(item.type))
+        .map(item => item.text)
+        .join("\n\n");
 
-    setReportRecommendation(recText);
-    setReportSeverity('CRITICAL');
-    setSpectrumImages([
-      { id: 1, name: "Equipment_Overall_FFT.png", url: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=500&auto=format&fit=crop&q=60" }
-    ]);
+      setReportRecommendation(recText);
+      setReportSeverity('CRITICAL');
+    }
+
+    // Removida a imagem automática — inicia sem fotos anexadas
+    setSpectrumImages([]);
     setShowClientReportPreview(false);
     setActiveTab('diagnostic');
   };
@@ -725,7 +731,7 @@ export default function App() {
                               </td>
                             </tr>
 
-                            {/* Sub-linhas com o texto do alarme no botão */}
+                            {/* Sub-linhas com o texto exato do alarme */}
                             {isExpanded && group.points.map(pt => (
                               <tr key={pt.id} className="bg-white border-l-4 border-l-indigo-500 hover:bg-indigo-50/20 text-slate-700">
                                 <td className="p-3.5"></td>
@@ -779,7 +785,6 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Coluna Principal: Formulário de Análise por Equipamento */}
               <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-5">
                 <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
                   <div>
@@ -876,7 +881,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Coluna Lateral Direita: Todos os pontos do Equipamento listados */}
               <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
                 <div>
                   <h4 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
@@ -999,12 +1003,13 @@ export default function App() {
                       <th className="p-3.5">Failure Types</th>
                       <th className="p-3.5">Severity</th>
                       <th className="p-3.5">Description</th>
+                      <th className="p-3.5 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {savedFailuresHistory.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-slate-400 font-medium">
+                        <td colSpan={7} className="p-8 text-center text-slate-400 font-medium">
                           No completed reports yet. Validate an equipment from Tab 3 to issue a report.
                         </td>
                       </tr>
@@ -1019,6 +1024,21 @@ export default function App() {
                             <span className="bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded font-bold">{rec.severidade}</span>
                           </td>
                           <td className="p-3.5 max-w-xs truncate text-slate-700">{rec.descricao_falha}</td>
+                          <td className="p-3.5 text-center">
+                            <button
+                              onClick={() => {
+                                const matchedGroup = groupedMeasurements[rec.equipamento] || {
+                                  equipamento: rec.equipamento,
+                                  area: rec.area || "PM1",
+                                  points: rec.ponto.split(", ").map(ptName => ({ ponto_medicao: ptName, valor_medido: 0, valor_limite: 0, variacao_perc: 0, status_alarme: "Recorded Alarm" }))
+                                };
+                                handleOpenEquipmentDiagnostic(matchedGroup, rec);
+                              }}
+                              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer"
+                            >
+                              Edit Report
+                            </button>
+                          </td>
                         </tr>
                       ))
                     )}
