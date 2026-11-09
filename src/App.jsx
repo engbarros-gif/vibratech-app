@@ -1037,3 +1037,60 @@ export default function App() {
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase">
+                    <tr>
+                      <th className="p-3.5">Record ID</th>
+                      <th className="p-3.5">Equipment (FLOC)</th>
+                      <th className="p-3.5">Points Covered</th>
+                      <th className="p-3.5">Failure Types</th>
+                      <th className="p-3.5">Severity</th>
+                      <th className="p-3.5">Description</th>
+                      <th className="p-3.5 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {savedFailuresHistory.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-slate-400 font-medium">
+                          No completed reports yet. Validate an equipment from Tab 3 to issue a report.
+                        </td>
+                      </tr>
+                    ) : (
+                      savedFailuresHistory.map(rec => (
+                        <tr key={rec.id} className="hover:bg-slate-50">
+                          <td className="p-3.5 font-mono text-indigo-700 font-bold">{rec.id}</td>
+                          <td className="p-3.5 font-bold text-slate-900">{rec.equipamento}</td>
+                          <td className="p-3.5 font-mono font-bold text-indigo-600">{rec.ponto}</td>
+                          <td className="p-3.5 font-semibold text-slate-800">{rec.tipos_falha}</td>
+                          <td className="p-3.5">
+                            <span className="bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded font-bold">{rec.severidade}</span>
+                          </td>
+                          <td className="p-3.5 max-w-xs truncate text-slate-700">{rec.descricao_falha}</td>
+                          <td className="p-3.5 text-center">
+                            <button
+                              onClick={() => {
+                                const matchedGroup = groupedMeasurements[rec.equipamento] || {
+                                  equipamento: rec.equipamento,
+                                  area: rec.area || "PM1",
+                                  points: rec.ponto.split(", ").map(ptName => ({ ponto_medicao: ptName, valor_medido: 0, valor_limite: 0, variacao_perc: 0, status_alarme: "Recorded Alarm" }))
+                                };
+                                handleOpenEquipmentDiagnostic(matchedGroup, rec);
+                              }}
+                              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer"
+                            >
+                              Edit Report
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
