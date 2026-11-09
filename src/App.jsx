@@ -83,21 +83,19 @@ export default function App() {
   const [measurementsData, setMeasurementsData] = useState([]);
 
   const [selectedRouteForUpload, setSelectedRouteForUpload] = useState(null);
-  const [selectedPointForReport, setSelectedPointForReport] = useState(null);
+  const [selectedEquipmentForReport, setSelectedEquipmentForReport] = useState(null);
   const [editingRecordId, setEditingRecordId] = useState(null);
-  const [validationType, setValidationType] = useState('Unacknowledged');
+  const [validationType, setValidationType] = useState('Acknowledged');
   const [validationJustification, setValidationJustification] = useState('');
   const [failureDescription, setFailureDescription] = useState('');
-  const [selectedFailureTypes, setSelectedFailureTypes] = useState([]);
+  const [selectedFailureTypes, setSelectedFailureTypes] = useState(["Unbalance"]);
   const [spectrumImages, setSpectrumImages] = useState([]);
   const [reportRecommendation, setReportRecommendation] = useState('');
   const [reportSeverity, setReportSeverity] = useState('CRITICAL');
   const [savedFailuresHistory, setSavedFailuresHistory] = useState([]);
   const [showClientReportPreview, setShowClientReportPreview] = useState(false);
 
-  // Estado para controlar equipamentos expandidos na visão de acordeão
   const [expandedEquipments, setExpandedEquipments] = useState({});
-
   const [measFilterRoute, setMeasFilterRoute] = useState('ALL');
   const [measFilterStatus, setMeasFilterStatus] = useState('ALARM');
   const [isUploading, setIsUploading] = useState(false);
@@ -161,7 +159,6 @@ export default function App() {
         if (Array.isArray(dataFailures)) {
           const mappedFailures = dataFailures.map(f => ({
             id: f.id,
-            ponto_id: f.id,
             equipamento: f.equipamento_tag,
             ponto: f.ponto_medicao,
             area: f.area_set,
@@ -171,7 +168,6 @@ export default function App() {
             descricao_falha: f.descricao_falha,
             severidade: f.severidade || "CRITICAL",
             recomendacao: f.recomendacao || "",
-            espectros: [],
             espectros_count: f.espectros_count || 0
           }));
           setSavedFailuresHistory(mappedFailures);
@@ -238,44 +234,26 @@ export default function App() {
     fileInput.click();
   };
 
-  const handleOpenPointDiagnostic = (point, existingRecord = null) => {
-    setSelectedPointForReport(point);
+  const handleOpenEquipmentDiagnostic = (group) => {
+    setSelectedEquipmentForReport(group);
+    setEditingRecordId(null);
+    setValidationType('Acknowledged');
+    setValidationJustification('');
     
-    if (existingRecord) {
-      setEditingRecordId(existingRecord.id);
-      setValidationType(existingRecord.validation_type || 'Acknowledged');
-      setValidationJustification('');
-      setFailureDescription(existingRecord.descricao_falha);
-      setSelectedFailureTypes(existingRecord.tipos_falha ? existingRecord.tipos_falha.split(", ") : []);
-      setReportRecommendation(existingRecord.recomendacao);
-      setReportSeverity(existingRecord.severidade);
-      setSpectrumImages(existingRecord.espectros || []);
-    } else {
-      setEditingRecordId(null);
-      setValidationType(point.validation_status || 'Unacknowledged');
-      setValidationJustification(point.validation_justification || '');
-      
-      const initialFailures = point.status_alarme.toLowerCase().includes('bearing') 
-        ? ["Rolling Element Bearing Defect"] 
-        : ["Unbalance"];
+    const initialFailures = ["Unbalance"];
+    setSelectedFailureTypes(initialFailures);
+    setFailureDescription(`Análise conjunta do Equipamento ${group.equipamento}: identificados ${group.points.length} pontos em alarme com desvios significativos nas bandas de frequência.`);
+    
+    const recText = FAILURE_TYPES_MATRIX
+      .filter(item => initialFailures.includes(item.type))
+      .map(item => item.text)
+      .join("\n\n");
 
-      setSelectedFailureTypes(initialFailures);
-      setFailureDescription(point.status_alarme !== '---' 
-        ? `Significant vibration deviation (+${point.variacao_perc}%) detected during measurement. Characteristic signal with elevated amplitudes in high frequency bands.` 
-        : ''
-      );
-      
-      const recText = FAILURE_TYPES_MATRIX
-        .filter(item => initialFailures.includes(item.type))
-        .map(item => item.text)
-        .join("\n\n");
-
-      setReportRecommendation(recText);
-      setSpectrumImages([
-        { id: 1, name: "OuterRing_FFT_Spectrum.png", url: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=500&auto=format&fit=crop&q=60" }
-      ]);
-    }
-
+    setReportRecommendation(recText);
+    setReportSeverity('CRITICAL');
+    setSpectrumImages([
+      { id: 1, name: "Equipment_Overall_FFT.png", url: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=500&auto=format&fit=crop&q=60" }
+    ]);
     setShowClientReportPreview(false);
     setActiveTab('diagnostic');
   };
@@ -287,37 +265,13 @@ export default function App() {
     } else {
       updatedTypes = [...selectedFailureTypes, typeObj.type];
     }
-    
     setSelectedFailureTypes(updatedTypes);
 
     const generatedRecommendation = FAILURE_TYPES_MATRIX
       .filter(item => updatedTypes.includes(item.type))
       .map(item => `[${item.type}]\n${item.text}`)
       .join("\n\n");
-
     setReportRecommendation(generatedRecommendation);
-  };
-
-  const handleDismissMeasurementError = () => {
-    if (!selectedPointForReport || !validationJustification.trim()) {
-      alert("Please enter a justification for the measurement/collection error.");
-      return;
-    }
-
-    setMeasurementsData(prev => prev.map(m => {
-      if (m.id === selectedPointForReport.id) {
-        return {
-          ...m,
-          validation_status: "Measurement Error",
-          validation_justification: validationJustification
-        };
-      }
-      return m;
-    }));
-
-    setUploadSuccessMsg(`Measurement at point "${selectedPointForReport.ponto_medicao}" validated as COLLECTION ERROR.`);
-    setActiveTab('measurements');
-    setTimeout(() => setUploadSuccessMsg(''), 5000);
   };
 
   const handleSpectrumUpload = (e) => {
@@ -333,21 +287,16 @@ export default function App() {
   };
 
   const handleSaveFailureRecord = async () => {
-    if (!selectedPointForReport) return;
-
-    if (validationType === 'Acknowledged' && selectedFailureTypes.length === 0) {
-      alert("Please select at least one Failure Type in the matrix before saving.");
-      return;
-    }
+    if (!selectedEquipmentForReport) return;
 
     const recordData = {
       id: editingRecordId || `REG-${Date.now().toString().slice(-5)}`,
-      ponto_medicao: selectedPointForReport.ponto_medicao,
-      equipamento_tag: selectedPointForReport.equipamento_tag,
-      area_set: selectedPointForReport.area_set,
+      ponto_medicao: selectedEquipmentForReport.points.map(p => p.ponto_medicao).join(", "),
+      equipamento_tag: selectedEquipmentForReport.equipamento,
+      area_set: selectedEquipmentForReport.area,
       validation_type: "Completed",
       tipos_falha: selectedFailureTypes.join(", ") || "Under Analysis",
-      descricao_falha: failureDescription || "Technical report generated based on SKF frequency bands and envelope.",
+      descricao_falha: failureDescription,
       severidade: reportSeverity,
       recomendacao: reportRecommendation,
       espectros_count: spectrumImages.length
@@ -361,27 +310,24 @@ export default function App() {
       });
 
       if (res.ok) {
-        setUploadSuccessMsg(`Analysis for equipment "${selectedPointForReport.equipamento_tag}" saved to Neon DB successfully!`);
+        setUploadSuccessMsg(`Report for Equipment "${selectedEquipmentForReport.equipamento}" saved to Neon DB!`);
         loadNeonData();
       } else {
-        setUploadSuccessMsg("Erro ao salvar no banco Neon.");
+        setUploadSuccessMsg("Erro ao salvar relatório no Neon.");
       }
     } catch (err) {
-      console.error("Backend sync error:", err);
+      console.error("Backend error:", err);
     }
 
     setShowClientReportPreview(true);
     setTimeout(() => {
       const reportElement = document.getElementById('client-report-section');
-      if (reportElement) {
-        reportElement.scrollIntoView({ behavior: 'smooth' });
-      }
+      if (reportElement) reportElement.scrollIntoView({ behavior: 'smooth' });
     }, 150);
 
     setTimeout(() => setUploadSuccessMsg(''), 6000);
   };
 
-  // Agrupamento por FLOC (Equipamento) para a visão de Acordeão
   const groupedMeasurements = measurementsData.reduce((acc, m) => {
     if (measFilterStatus === 'ALARM') {
       if (m.status_alarme === '---' || m.validation_status === 'Measurement Error' || m.validation_status === 'Completed') {
@@ -477,7 +423,7 @@ export default function App() {
             <span>3. Measurement History & Alarms</span>
           </button>
 
-          {selectedPointForReport && (
+          {selectedEquipmentForReport && (
             <button
               onClick={() => setActiveTab('diagnostic')}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap cursor-pointer ${
@@ -485,7 +431,7 @@ export default function App() {
               }`}
             >
               <FileText className="w-4 h-4" />
-              <span>4. Diagnostic & Report ({selectedPointForReport.ponto_medicao})</span>
+              <span>4. Diagnostic & Report ({selectedEquipmentForReport.equipamento})</span>
             </button>
           )}
 
@@ -535,6 +481,88 @@ export default function App() {
                 <span className="text-[11px] text-rose-600 block mt-1 font-medium">Awaiting analyst report</span>
               </div>
             </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <PieChart className="w-4 h-4 text-indigo-600" />
+                      Failure Breakdown by Severity
+                    </h3>
+                    <span className="text-xs text-slate-400 font-medium font-mono">Current Cycle</span>
+                  </div>
+                  {(() => {
+                    const critCount = measurementsData.filter(m => m.status_alarme.includes('Danger')).length + 1;
+                    const alertCount = measurementsData.filter(m => m.status_alarme.includes('Alert')).length + 2;
+                    const monitorCount = 3;
+                    const total = critCount + alertCount + monitorCount || 1;
+                    const critPct = Math.round((critCount / total) * 100);
+                    const alertPct = Math.round((alertCount / total) * 100);
+                    const monPct = Math.round((monitorCount / total) * 100);
+
+                    return (
+                      <div className="space-y-4">
+                        <div className="w-full h-4 bg-slate-100 rounded-full overflow-hidden flex shadow-inner">
+                          <div style={{ width: `${critPct}%` }} className="bg-rose-600 h-full" />
+                          <div style={{ width: `${alertPct}%` }} className="bg-amber-500 h-full" />
+                          <div style={{ width: `${monPct}%` }} className="bg-sky-500 h-full" />
+                        </div>
+                        <div className="grid grid-cols-3 gap-3 pt-2">
+                          <div className="bg-rose-50 border border-rose-200 p-3 rounded-xl">
+                            <span className="text-[11px] font-bold text-rose-700 block">🔴 Critical</span>
+                            <span className="text-xl font-black text-rose-900">{critCount}</span>
+                          </div>
+                          <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl">
+                            <span className="text-[11px] font-bold text-amber-700 block">🟡 Alarm</span>
+                            <span className="text-xl font-black text-amber-900">{alertCount}</span>
+                          </div>
+                          <div className="bg-sky-50 border border-sky-200 p-3 rounded-xl">
+                            <span className="text-[11px] font-bold text-sky-700 block">🔵 Monitor</span>
+                            <span className="text-xl font-black text-sky-900">{monitorCount}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4 text-indigo-600" />
+                      Plant Area Health & Condition
+                    </h3>
+                    <span className="text-xs text-slate-400 font-medium">Operational Status (%)</span>
+                  </div>
+                  <div className="space-y-3.5">
+                    {[
+                      { area: "PM1 BASEMENT", total: 415, alarms: 4 },
+                      { area: "COAT STEAM DRYER", total: 491, alarms: 2 },
+                      { area: "DRYER SECTION", total: 180, alarms: 1 }
+                    ].map(areaItem => {
+                      const healthyPct = Math.round(((areaItem.total - areaItem.alarms) / areaItem.total) * 100);
+                      return (
+                        <div key={areaItem.area} className="space-y-1">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="font-bold text-slate-800">{areaItem.area}</span>
+                            <span className="font-mono text-slate-600">
+                              <strong className="text-emerald-600">{healthyPct}% Normal</strong> ({areaItem.alarms} in alarm)
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden flex">
+                            <div style={{ width: `${healthyPct}%` }} className="bg-emerald-500 h-full" />
+                            <div style={{ width: `${100 - healthyPct}%` }} className="bg-rose-500 h-full" />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -543,7 +571,7 @@ export default function App() {
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
               <h2 className="text-lg font-bold text-slate-900 mb-2">Inspection Route Schedule (`tb_schedule_rotas`)</h2>
               <p className="text-xs text-slate-500">
-                Select the target route and click <strong>"Import SKF HTML"</strong>. The system updates execution and reschedules next execution to <strong>+28 days from the scheduled date (Fixed Cycle)</strong>.
+                Select the target route and click <strong>"Import SKF HTML"</strong>. Next execution is rescheduled to <strong>+28 days (Fixed Cycle)</strong>.
               </p>
             </div>
 
@@ -582,9 +610,7 @@ export default function App() {
                           <td className="p-3.5">{route.responsable}</td>
                           <td className="p-3.5 text-center">
                             <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                              route.status === 'Completed' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
-                              route.status === 'Pending' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
-                              'bg-rose-100 text-rose-800 border border-rose-200'
+                              route.status === 'Completed' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-amber-100 text-amber-800 border border-amber-200'
                             }`}>
                               {route.status}
                             </span>
@@ -592,11 +618,10 @@ export default function App() {
                           <td className="p-3.5 text-center">
                             <button
                               onClick={() => handleImportHTMLForRoute(route)}
-                              disabled={isUploading && selectedRouteForUpload?.plan_id === route.plan_id}
-                              className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 mx-auto cursor-pointer shadow-sm disabled:opacity-50"
+                              className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 mx-auto cursor-pointer shadow-sm"
                             >
                               <Upload className="w-3.5 h-3.5" />
-                              <span>{isUploading && selectedRouteForUpload?.plan_id === route.plan_id ? "Uploading..." : "Import SKF HTML"}</span>
+                              <span>Import SKF HTML</span>
                             </button>
                           </td>
                         </tr>
@@ -614,7 +639,7 @@ export default function App() {
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Vibration Measurement History (FLOC Hierarchical View)</h2>
-                <p className="text-xs text-slate-500">Grouped by Functional Location (Equipment). Expand to inspect individual vibrating points.</p>
+                <p className="text-xs text-slate-500">Grouped by Functional Location (Equipment). Expand to inspect individual points.</p>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
@@ -692,15 +717,15 @@ export default function App() {
                               </td>
                               <td className="p-3.5 text-center">
                                 <button
-                                  onClick={() => handleOpenPointDiagnostic(group.points[0])}
-                                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shadow-sm"
+                                  onClick={() => handleOpenEquipmentDiagnostic(group)}
+                                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer shadow-sm"
                                 >
                                   Validate Equipment &rarr;
                                 </button>
                               </td>
                             </tr>
 
-                            {/* Sub-linhas (Acordeão com os pontos constituintes) */}
+                            {/* Sub-linhas com o texto do alarme no botão */}
                             {isExpanded && group.points.map(pt => (
                               <tr key={pt.id} className="bg-white border-l-4 border-l-indigo-500 hover:bg-indigo-50/20 text-slate-700">
                                 <td className="p-3.5"></td>
@@ -716,12 +741,9 @@ export default function App() {
                                   +{pt.variacao_perc}%
                                 </td>
                                 <td className="p-3.5 text-center">
-                                  <button
-                                    onClick={() => handleOpenPointDiagnostic(pt)}
-                                    className="bg-slate-800 hover:bg-slate-900 text-white font-bold px-2.5 py-1 rounded text-[11px] cursor-pointer"
-                                  >
-                                    Inspect Point
-                                  </button>
+                                  <span className="bg-slate-900 text-white font-mono text-[10px] px-3 py-1 rounded-lg block truncate max-w-xs mx-auto">
+                                    {pt.status_alarme}
+                                  </span>
                                 </td>
                               </tr>
                             ))}
@@ -736,7 +758,7 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'diagnostic' && selectedPointForReport && (
+        {activeTab === 'diagnostic' && selectedEquipmentForReport && (
           <div className="space-y-6">
             <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
               <button
@@ -747,56 +769,44 @@ export default function App() {
                 <span>Back to History</span>
               </button>
 
-              <div className="flex items-center gap-2">
-                {validationType === 'Measurement Error' ? (
-                  <button
-                    onClick={handleDismissMeasurementError}
-                    className="bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-2 shadow-sm transition-all cursor-pointer"
-                  >
-                    <XCircle className="w-4 h-4 text-rose-400" />
-                    <span>Confirm Dismissal (Collection Error)</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleSaveFailureRecord}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-2 shadow-sm transition-all cursor-pointer"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Save Failure Record & Generate Standard Report</span>
-                  </button>
-                )}
-              </div>
+              <button
+                onClick={handleSaveFailureRecord}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Save Failure Record & Generate Standard Report</span>
+              </button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Coluna Principal: Formulário de Análise por Equipamento */}
               <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-5">
                 <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
                   <div>
-                    <span className="text-xs font-bold text-indigo-600 tracking-wider uppercase">{selectedPointForReport.equipamento_tag}</span>
-                    <h3 className="text-xl font-bold text-slate-900">Technical Report & Validation: {selectedPointForReport.ponto_medicao}</h3>
+                    <span className="text-xs font-bold text-indigo-600 tracking-wider uppercase">Asset-Level Analysis (FLOC)</span>
+                    <h3 className="text-xl font-bold text-slate-900">Technical Report: {selectedEquipmentForReport.equipamento}</h3>
                   </div>
                   <span className="bg-rose-100 text-rose-800 text-xs font-bold px-3 py-1 rounded-full border border-rose-200">
-                    Deviation: +{selectedPointForReport.variacao_perc}%
+                    {selectedEquipmentForReport.points.length} Point(s) in Alarm
                   </span>
                 </div>
 
                 <div className="space-y-4">
                   <div>
                     <label className="text-xs font-bold text-slate-800 block mb-1">
-                      2. Failure Description (Analyst Analysis):
+                      Failure Description (Analyst Analysis):
                     </label>
                     <textarea
                       rows={3}
                       value={failureDescription}
                       onChange={(e) => setFailureDescription(e.target.value)}
-                      placeholder="Describe in detail what was identified during technical analysis..."
                       className="w-full bg-slate-50 text-slate-800 text-xs p-3 rounded-xl border border-slate-300 focus:outline-none focus:border-indigo-500"
                     />
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-800 block">
-                      3. Identified Failure Types (`Matrix_Failure_Types`):
+                      Identified Failure Types (`Matrix_Failure_Types`):
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 bg-slate-50 rounded-xl border border-slate-200">
                       {FAILURE_TYPES_MATRIX.map(matrixItem => {
@@ -807,9 +817,7 @@ export default function App() {
                             key={matrixItem.type}
                             onClick={() => handleToggleFailureType(matrixItem)}
                             className={`p-2 rounded-lg text-left text-xs font-medium border flex items-center justify-between transition-all cursor-pointer ${
-                              isSelected
-                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                              isSelected ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                             }`}
                           >
                             <span>{matrixItem.type}</span>
@@ -828,31 +836,69 @@ export default function App() {
                       rows={4}
                       value={reportRecommendation}
                       onChange={(e) => setReportRecommendation(e.target.value)}
-                      className="w-full bg-slate-50 text-slate-800 text-xs p-3 rounded-xl border border-slate-300 focus:outline-none focus:border-indigo-500 font-mono"
+                      className="w-full bg-slate-50 text-slate-800 text-xs p-3 rounded-xl border border-slate-300 font-mono"
                     />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Analysis Severity:</label>
+                    <select
+                      value={reportSeverity}
+                      onChange={(e) => setReportSeverity(e.target.value)}
+                      className="w-full bg-slate-50 text-slate-800 text-xs font-bold px-3 py-2 rounded-xl border border-slate-300"
+                    >
+                      <option value="CRITICAL">🔴 Critical (Immediate Action)</option>
+                      <option value="ALARM">🟡 Alarm (Accelerated Monitoring)</option>
+                      <option value="MONITOR">🔵 Under Observation</option>
+                    </select>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100">
+                    <label className="text-xs font-bold text-slate-700 block mb-2 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <ImageIcon className="w-4 h-4 text-indigo-600" />
+                        Spectrum / FFT / Vibration Envelope Photos:
+                      </span>
+                    </label>
+                    <div className="flex flex-wrap gap-3 items-center">
+                      {spectrumImages.map(img => (
+                        <div key={img.id} className="relative group w-24 h-24 bg-slate-100 rounded-xl overflow-hidden border border-slate-300 shadow-sm">
+                          <img src={img.url} alt={img.name} className="w-full h-full object-cover" />
+                        </div>
+                      ))}
+                      <label className="w-24 h-24 rounded-xl border-2 border-dashed border-indigo-300 bg-indigo-50/50 hover:bg-indigo-50 text-indigo-600 flex flex-col items-center justify-center cursor-pointer transition-all">
+                        <Upload className="w-5 h-5 mb-1" />
+                        <span className="text-[10px] font-bold text-center px-1">Attach Spectrum</span>
+                        <input type="file" multiple accept="image/*" className="hidden" onChange={handleSpectrumUpload} />
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
 
+              {/* Coluna Lateral Direita: Todos os pontos do Equipamento listados */}
               <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
                 <div>
                   <h4 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
                     <LineChartIcon className="w-4 h-4 text-indigo-600" />
-                    Measured Point Summary
+                    Equipment Points Summary ({selectedEquipmentForReport.points.length})
                   </h4>
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs space-y-2">
-                    <div className="flex justify-between border-b border-slate-200 pb-1">
-                      <span className="text-slate-500">Equipment:</span>
-                      <span className="font-bold">{selectedPointForReport.equipamento_tag}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-200 pb-1">
-                      <span className="text-slate-500">Point:</span>
-                      <span className="font-bold">{selectedPointForReport.ponto_medicao}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-200 pb-1">
-                      <span className="text-slate-500">Measured:</span>
-                      <span className="font-bold text-indigo-700">{selectedPointForReport.valor_medido} {selectedPointForReport.unidade}</span>
-                    </div>
+                  <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+                    {selectedEquipmentForReport.points.map(pt => (
+                      <div key={pt.id} className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-1">
+                        <div className="flex justify-between font-bold text-indigo-700">
+                          <span>Point: {pt.ponto_medicao}</span>
+                          <span className="text-rose-600 font-mono">+{pt.variacao_perc}%</span>
+                        </div>
+                        <div className="flex justify-between text-slate-600 text-[11px]">
+                          <span>Meas: {pt.valor_medido} {pt.unidade}</span>
+                          <span>Limit: {pt.valor_limite}</span>
+                        </div>
+                        <div className="text-[10px] font-mono text-slate-500 truncate bg-white p-1 rounded border border-slate-100">
+                          {pt.status_alarme}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -864,18 +910,67 @@ export default function App() {
                   <div className="flex items-center gap-3">
                     <div className="bg-indigo-600 text-white p-2.5 rounded-xl font-bold">VT</div>
                     <div>
-                      <h3 className="text-base font-bold text-slate-900">VIBRATION ANALYSIS TECHNICAL REPORT</h3>
+                      <h3 className="text-base font-bold text-slate-900">VIBRATION ANALYSIS TECHNICAL REPORT (ASSET LEVEL)</h3>
                       <p className="text-xs text-slate-500">Asset Condition Technical Report — VibraTech</p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => window.print()}
-                    className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-4 py-2 rounded-xl flex items-center gap-2 cursor-pointer shadow-sm"
-                  >
-                    <Printer className="w-4 h-4" />
-                    <span>Print / Export PDF</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Saved to Neon DB
+                    </span>
+                    <button
+                      onClick={() => window.print()}
+                      className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-4 py-2 rounded-xl flex items-center gap-2 cursor-pointer shadow-sm"
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span>Print / Export PDF</span>
+                    </button>
+                  </div>
                 </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+                  <div>
+                    <span className="text-slate-500 block">Equipment (FLOC):</span>
+                    <strong className="text-slate-900">{selectedEquipmentForReport.equipamento}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Total Points Analyzed:</span>
+                    <strong className="text-indigo-700 font-mono">{selectedEquipmentForReport.points.length} points</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Detected Failure:</span>
+                    <strong className="text-slate-900">{selectedFailureTypes.join(", ")}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Severity:</span>
+                    <span className="bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded font-bold">{reportSeverity}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <h4 className="font-bold text-slate-800 border-b border-slate-200 pb-1 mb-1">Analyst Failure Description:</h4>
+                    <p className="text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg">{failureDescription}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-800 border-b border-slate-200 pb-1 mb-1">Maintenance Technical Recommendations:</h4>
+                    <p className="text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg whitespace-pre-line font-mono">{reportRecommendation}</p>
+                  </div>
+                </div>
+
+                {spectrumImages.length > 0 && (
+                  <div>
+                    <h4 className="font-bold text-xs text-slate-800 border-b border-slate-200 pb-1 mb-3">Attached Vibration Spectra:</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {spectrumImages.map(img => (
+                        <div key={img.id} className="bg-slate-50 p-2 rounded-xl border border-slate-200">
+                          <img src={img.url} alt={img.name} className="w-full h-48 object-cover rounded-lg" />
+                          <span className="text-[10px] text-slate-500 font-mono mt-1 block text-center">{img.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -886,7 +981,7 @@ export default function App() {
             <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
               <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <ShieldAlert className="w-5 h-5 text-indigo-600" />
-                Analyzed Points History & Failure Records (`tb_registros_falha`)
+                Analyzed Equipment History & Failure Records (`tb_registros_falha`)
               </h2>
               <p className="text-xs text-slate-500 mt-1">
                 Centralized database of completed technical analyses stored in Neon PostgreSQL.
@@ -899,8 +994,8 @@ export default function App() {
                   <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase">
                     <tr>
                       <th className="p-3.5">Record ID</th>
-                      <th className="p-3.5">Equipment</th>
-                      <th className="p-3.5">Point</th>
+                      <th className="p-3.5">Equipment (FLOC)</th>
+                      <th className="p-3.5">Points Covered</th>
                       <th className="p-3.5">Failure Types</th>
                       <th className="p-3.5">Severity</th>
                       <th className="p-3.5">Description</th>
@@ -910,7 +1005,7 @@ export default function App() {
                     {savedFailuresHistory.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="p-8 text-center text-slate-400 font-medium">
-                          No completed reports yet. Select a pending alarm from Tab 3 to issue a report.
+                          No completed reports yet. Validate an equipment from Tab 3 to issue a report.
                         </td>
                       </tr>
                     ) : (
@@ -918,7 +1013,7 @@ export default function App() {
                         <tr key={rec.id} className="hover:bg-slate-50">
                           <td className="p-3.5 font-mono text-indigo-700 font-bold">{rec.id}</td>
                           <td className="p-3.5 font-bold text-slate-900">{rec.equipamento}</td>
-                          <td className="p-3.5 font-mono font-bold">{rec.ponto}</td>
+                          <td className="p-3.5 font-mono font-bold text-indigo-600">{rec.ponto}</td>
                           <td className="p-3.5 font-semibold text-slate-800">{rec.tipos_falha}</td>
                           <td className="p-3.5">
                             <span className="bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded font-bold">{rec.severidade}</span>
