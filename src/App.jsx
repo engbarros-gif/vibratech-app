@@ -98,7 +98,7 @@ export default function App() {
   const [expandedEquipments, setExpandedEquipments] = useState({});
   const [measFilterRoute, setMeasFilterRoute] = useState('ALL');
   const [measFilterStatus, setMeasFilterStatus] = useState('ALARM');
-  const [measFilterAnalysis, setMeasFilterAnalysis] = useState('ALL'); // NOVO: Filtro de status de análise
+  const [measFilterAnalysis, setMeasFilterAnalysis] = useState('ALL'); // Filtro de Status de Análise
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccessMsg, setUploadSuccessMsg] = useState('');
 
@@ -146,7 +146,7 @@ export default function App() {
             variacao_perc: m.variacao_perc !== undefined ? m.variacao_perc : 0.0,
             unidade: m.unidade || "mm/s",
             status_alarme: m.status_alarme || '---',
-            status_analise: m.status_analise || 'Pendente', // NOVO: Mapeia o status do Neon
+            status_analise: m.status_analise || 'Pendente', // Campo de status mapeado
             validation_status: m.validation_status || "Unacknowledged",
             validation_justification: m.validation_justification || ""
           }));
@@ -358,7 +358,7 @@ export default function App() {
     return acc;
   }, {});
 
-  // NOVO: Filtro aplicado na listagem agrupada por status de análise
+  // Filtragem dos grupos de equipamentos com base no status de análise selecionado
   const filteredGroupedMeasurements = Object.values(groupedMeasurements).filter(group => {
     if (measFilterAnalysis === 'ALL') return true;
     const allAnalyzed = group.points.every(p => p.status_analise === 'Analisado');
@@ -679,7 +679,7 @@ export default function App() {
                   <option value="ALL">All Measurements</option>
                 </select>
 
-                {/* NOVO: Filtro visual de status de análise */}
+                {/* Filtro de Status de Análise */}
                 <select
                   value={measFilterAnalysis}
                   onChange={(e) => setMeasFilterAnalysis(e.target.value)}
